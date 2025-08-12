@@ -11,14 +11,6 @@ import (
 	"strconv"
 )
 
-type ExampleArgs struct {
-	X int
-}
-
-type ExampleReply struct {
-	Y int
-}
-
 const (
 	MapTask    = "map"
 	ReduceTask = "reduce"
@@ -46,10 +38,10 @@ type GetTaskResp struct {
 }
 
 type ReportTaskReq struct {
-	workerID int
-	taskID   int
-	taskType string
-	status   string
+	workerID  int
+	taskID    int
+	taskType  string
+	completed bool
 }
 
 type ReportTaskResp struct {

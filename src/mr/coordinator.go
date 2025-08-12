@@ -27,11 +27,6 @@ type Coordinator struct {
 	nReduce     int
 }
 
-func (c *Coordinator) Example(args *ExampleArgs, reply *ExampleReply) error {
-	reply.Y = args.X + 1
-	return nil
-}
-
 // start a thread that listens for RPCs from worker.go
 func (c *Coordinator) server() {
 	rpc.Register(c)
@@ -46,7 +41,7 @@ func (c *Coordinator) server() {
 	go http.Serve(l, nil)
 }
 
-func (c *Coordinator) GetTask(req *GetTaskReq) (resp *GetTaskResp, err error) {
+func (c *Coordinator) GetTask(req *GetTaskReq, resp *GetTaskResp) (err error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
@@ -55,7 +50,7 @@ func (c *Coordinator) GetTask(req *GetTaskReq) (resp *GetTaskResp, err error) {
 
 	if c.allFinished {
 		resp.taskType = ExitTask
-		return resp, nil
+		return nil
 	}
 
 	// mapTask 还未执行完，分配 mapTask
@@ -69,11 +64,11 @@ func (c *Coordinator) GetTask(req *GetTaskReq) (resp *GetTaskResp, err error) {
 
 				c.mapTasks[i].status = Progressing
 				c.mapTasks[i].startTime = time.Now()
-				return resp, nil
+				return nil
 			}
 		}
 		resp.taskType = WaitTask
-		return resp, nil
+		return nil
 	}
 
 	for i, task := range c.reduceTasks {
@@ -85,11 +80,11 @@ func (c *Coordinator) GetTask(req *GetTaskReq) (resp *GetTaskResp, err error) {
 
 			c.reduceTasks[i].status = Progressing
 			c.reduceTasks[i].startTime = time.Now()
-			return resp, nil
+			return nil
 		}
 	}
 	resp.taskType = WaitTask
-	return resp, nil
+	return nil
 }
 
 func (c *Coordinator) checkTimeout() {
@@ -113,13 +108,13 @@ func (c *Coordinator) checkTimeout() {
 	}
 }
 
-func (c *Coordinator) ReportTask(req *ReportTaskReq) (resp *ReportTaskResp, err error) {
+func (c *Coordinator) ReportTask(req *ReportTaskReq, resp *ReportTaskResp) (err error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
 	if req.taskType == MapTask {
 		for i, task := range c.mapTasks {
-			if req.taskID == task.taskID && req.status == Progressing {
+			if req.taskID == task.taskID && req.completed {
 				c.mapTasks[i].status = Completed
 
 				allCompleted := true
@@ -131,14 +126,14 @@ func (c *Coordinator) ReportTask(req *ReportTaskReq) (resp *ReportTaskResp, err 
 				}
 				c.mapFinished = allCompleted
 				resp.ok = true
-				return resp, nil
+				return nil
 			}
 		}
 	}
 
 	if req.taskType == ReduceTask {
 		for i, task := range c.reduceTasks {
-			if req.taskID == task.taskID && req.status == Progressing {
+			if req.taskID == task.taskID && req.completed {
 				c.reduceTasks[i].status = Completed
 
 				allCompleted := true
@@ -150,18 +145,22 @@ func (c *Coordinator) ReportTask(req *ReportTaskReq) (resp *ReportTaskResp, err 
 				}
 				c.allFinished = allCompleted
 				resp.ok = true
-				return resp, nil
+				return nil
 			}
 		}
 	}
 	resp.ok = false
-	return resp, nil
+	return nil
 }
 
 // main/mrcoordinator.go calls Done() periodically to find out
 // if the entire job has finished.
 func (c *Coordinator) Done() bool {
 	ret := false
+
+	if c.allFinished {
+		ret = true
+	}
 
 	return ret
 }
@@ -189,10 +188,6 @@ func MakeCoordinator(files []string, nReduce int) *Coordinator {
 			taskID: i,
 			status: Idle,
 		}
-	}
-
-	for {
-
 	}
 
 	c.server()
