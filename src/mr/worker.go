@@ -43,7 +43,7 @@ func Worker(mapf func(string, string) []KeyValue, reducef func(string, []string)
 	for {
 		resp := getTask(workerID)
 
-		switch resp.taskType {
+		switch resp.TaskType {
 		case MapTask:
 			doMap(resp, mapf, workerID)
 		case ReduceTask:
@@ -60,7 +60,7 @@ func Worker(mapf func(string, string) []KeyValue, reducef func(string, []string)
 
 func doMap(task *GetTaskResp, mapf func(string, string) []KeyValue, workerID int) {
 
-	filename := task.file
+	filename := task.File
 	file, err := os.Open(filename)
 	if err != nil {
 		log.Fatalf("cannot open %v", filename)
@@ -74,16 +74,16 @@ func doMap(task *GetTaskResp, mapf func(string, string) []KeyValue, workerID int
 	kva := mapf(filename, string(content))
 
 	// 分桶
-	intermediate := make([][]KeyValue, task.nReduce)
+	intermediate := make([][]KeyValue, task.NReduce)
 	for _, kv := range kva {
-		bucket := ihash(kv.Key) % task.nReduce
+		bucket := ihash(kv.Key) % task.NReduce
 		intermediate[bucket] = append(intermediate[bucket], kv)
 	}
 
-	for i := 0; i < task.nReduce; i++ {
+	for i := 0; i < task.NReduce; i++ {
 		tempFile, err := os.CreateTemp("", "mr-tmp-*")
 		if err != nil {
-			log.Fatal("cannot create temp file")
+			log.Fatal("cannot create temp File")
 		}
 
 		enc := json.NewEncoder(tempFile)
@@ -94,33 +94,33 @@ func doMap(task *GetTaskResp, mapf func(string, string) []KeyValue, workerID int
 			}
 		}
 		tempFile.Close()
-		os.Rename(tempFile.Name(), fmt.Sprintf("mr-%d-%d", task.taskID, i))
+		os.Rename(tempFile.Name(), fmt.Sprintf("mr-%d-%d", task.TaskID, i))
 	}
-	reportTaskDone(task.taskType, task.taskID, workerID)
+	reportTaskDone(task.TaskType, task.TaskID, workerID)
 }
 
 func reportTaskDone(taskType string, taskID int, workerID int) {
 	req := &ReportTaskReq{
-		workerID:  workerID,
-		taskID:    taskID,
-		taskType:  taskType,
-		completed: true,
+		WorkerID:  workerID,
+		TaskID:    taskID,
+		TaskType:  taskType,
+		Completed: true,
 	}
 	resp := &ReportTaskResp{}
 	call("Coordinator.ReportTask", req, resp)
-	if !resp.ok {
+	if !resp.OK {
 		log.Fatal("report task done failed")
 	}
 }
 
 func doReduce(task *GetTaskResp, reducef func(string, []string) string, workerID int) {
 	// reducer 编号
-	reduceTaskNum := task.reduceTaskNum
+	reduceTaskNum := task.ReduceTaskNum
 	pattern := fmt.Sprintf("mr-*-%d", reduceTaskNum)
 
 	matches, err := filepath.Glob(pattern)
 	if err != nil {
-		log.Fatal("cannot get match file")
+		log.Fatal("cannot get match File")
 	}
 
 	// 收集分到同一个桶的临时文件中的 kv 对
@@ -147,7 +147,7 @@ func doReduce(task *GetTaskResp, reducef func(string, []string) string, workerID
 
 	tempFile, err := os.CreateTemp("", "mr-out-tmp-*")
 	if err != nil {
-		log.Fatal("cannot create temp file")
+		log.Fatal("cannot create temp File")
 	}
 	defer tempFile.Close()
 
@@ -168,13 +168,14 @@ func doReduce(task *GetTaskResp, reducef func(string, []string) string, workerID
 		i = j
 	}
 	os.Rename(tempFile.Name(), fmt.Sprintf("mr-out-%d", reduceTaskNum))
-	reportTaskDone(task.taskType, task.taskID, workerID)
+	reportTaskDone(task.TaskType, task.TaskID, workerID)
 }
 
 func getTask(workerID int) (resp *GetTaskResp) {
 	req := &GetTaskReq{
-		workerID: workerID,
+		WorkerID: workerID,
 	}
+	resp = new(GetTaskResp)
 	call("Coordinator.GetTask", req, resp)
 	return resp
 }

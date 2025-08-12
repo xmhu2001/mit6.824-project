@@ -49,7 +49,7 @@ func (c *Coordinator) GetTask(req *GetTaskReq, resp *GetTaskResp) (err error) {
 	c.checkTimeout()
 
 	if c.allFinished {
-		resp.taskType = ExitTask
+		resp.TaskType = ExitTask
 		return nil
 	}
 
@@ -57,33 +57,33 @@ func (c *Coordinator) GetTask(req *GetTaskReq, resp *GetTaskResp) (err error) {
 	if !c.mapFinished {
 		for i, task := range c.mapTasks {
 			if task.status == Idle {
-				resp.taskType = MapTask
-				resp.taskID = task.taskID
-				resp.file = task.file
-				resp.nReduce = c.nReduce
+				resp.TaskType = MapTask
+				resp.TaskID = task.taskID
+				resp.File = task.file
+				resp.NReduce = c.nReduce
 
 				c.mapTasks[i].status = Progressing
 				c.mapTasks[i].startTime = time.Now()
 				return nil
 			}
 		}
-		resp.taskType = WaitTask
+		resp.TaskType = WaitTask
 		return nil
 	}
 
 	for i, task := range c.reduceTasks {
 		if task.status == Idle {
-			resp.taskType = ReduceTask
-			resp.taskID = task.taskID
-			resp.reduceTaskNum = i
-			resp.mapTaskNum = len(c.mapTasks)
+			resp.TaskType = ReduceTask
+			resp.TaskID = task.taskID
+			resp.ReduceTaskNum = i
+			resp.MapTaskNum = len(c.mapTasks)
 
 			c.reduceTasks[i].status = Progressing
 			c.reduceTasks[i].startTime = time.Now()
 			return nil
 		}
 	}
-	resp.taskType = WaitTask
+	resp.TaskType = WaitTask
 	return nil
 }
 
@@ -112,9 +112,9 @@ func (c *Coordinator) ReportTask(req *ReportTaskReq, resp *ReportTaskResp) (err 
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	if req.taskType == MapTask {
+	if req.TaskType == MapTask {
 		for i, task := range c.mapTasks {
-			if req.taskID == task.taskID && req.completed {
+			if req.TaskID == task.taskID && req.Completed {
 				c.mapTasks[i].status = Completed
 
 				allCompleted := true
@@ -125,15 +125,15 @@ func (c *Coordinator) ReportTask(req *ReportTaskReq, resp *ReportTaskResp) (err 
 					}
 				}
 				c.mapFinished = allCompleted
-				resp.ok = true
+				resp.OK = true
 				return nil
 			}
 		}
 	}
 
-	if req.taskType == ReduceTask {
+	if req.TaskType == ReduceTask {
 		for i, task := range c.reduceTasks {
-			if req.taskID == task.taskID && req.completed {
+			if req.TaskID == task.taskID && req.Completed {
 				c.reduceTasks[i].status = Completed
 
 				allCompleted := true
@@ -144,12 +144,12 @@ func (c *Coordinator) ReportTask(req *ReportTaskReq, resp *ReportTaskResp) (err 
 					}
 				}
 				c.allFinished = allCompleted
-				resp.ok = true
+				resp.OK = true
 				return nil
 			}
 		}
 	}
-	resp.ok = false
+	resp.OK = false
 	return nil
 }
 
@@ -167,12 +167,13 @@ func (c *Coordinator) Done() bool {
 
 // create a Coordinator.
 // main/mrcoordinator.go calls this function.
-// nReduce is the number of reduce tasks to use.
+// NReduce is the number of reduce tasks to use.
 func MakeCoordinator(files []string, nReduce int) *Coordinator {
 	c := Coordinator{
 		files:       files,
 		mapTasks:    make([]Task, len(files)),
 		reduceTasks: make([]Task, nReduce),
+		nReduce:     nReduce,
 	}
 
 	for i, file := range files {

@@ -21,31 +21,31 @@ const (
 const (
 	Idle        = "idle"
 	Progressing = "progressing"
-	Completed   = "completed"
+	Completed   = "Completed"
 )
 
 type GetTaskReq struct {
-	workerID int
+	WorkerID int
 }
 
 type GetTaskResp struct {
-	taskID        int
-	taskType      string
-	file          string
-	mapTaskNum    int
-	reduceTaskNum int
-	nReduce       int
+	TaskID        int
+	TaskType      string
+	File          string
+	MapTaskNum    int
+	ReduceTaskNum int
+	NReduce       int
 }
 
 type ReportTaskReq struct {
-	workerID  int
-	taskID    int
-	taskType  string
-	completed bool
+	WorkerID  int
+	TaskID    int
+	TaskType  string
+	Completed bool
 }
 
 type ReportTaskResp struct {
-	ok bool
+	OK bool
 }
 
 // Cook up a unique-ish UNIX-domain socket name
